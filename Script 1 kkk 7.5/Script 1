@@ -1,0 +1,1307 @@
+-- [[ QUANTUM MICHEL - V204 COMPLETO & CORRIGIDO ]]
+-- Criado por Michel Pereira | Instagram: @exrei.1999
+local ID_SCRIPT = "QuantumMichel_V86"
+
+-- [RESET TOTAL]
+pcall(function() game:GetService("RunService"):UnbindFromRenderStep("QuantumAimLock") end)
+if _G.QuantumConns then
+    for _, c in ipairs(_G.QuantumConns) do pcall(function() c:Disconnect() end) end
+end
+_G.QuantumConns = {}
+if _G.QuantumRenderConnection then pcall(function() _G.QuantumRenderConnection:Disconnect() end); _G.QuantumRenderConnection = nil end
+if _G.QuantumHealthConnection then pcall(function() _G.QuantumHealthConnection:Disconnect() end); _G.QuantumHealthConnection = nil end
+if _G.QuantumNoClipConnection then pcall(function() _G.QuantumNoClipConnection:Disconnect() end); _G.QuantumNoClipConnection = nil end
+_G.QuantumLoopEspAtivo = false
+_G.QuantumEspToken = nil
+if _G.QuantumRestaurar then pcall(_G.QuantumRestaurar); _G.QuantumRestaurar = nil end
+if _G.QuantumAtivo then
+    pcall(function()
+        local esp = _G.QuantumAtivo:FindFirstChild("ESP_CONTAINER")
+        if esp then esp:Destroy() end
+        _G.QuantumAtivo:Destroy()
+    end)
+    _G.QuantumAtivo = nil
+end
+
+pcall(function()
+    if _G.QuantumIntroGui then _G.QuantumIntroGui:Destroy(); _G.QuantumIntroGui = nil end
+    local bl = game:GetService("Lighting"):FindFirstChild("QuantumBlur")
+    if bl then bl:Destroy() end
+end)
+
+local Conns = _G.QuantumConns
+local function Track(c) table.insert(Conns, c); return c end
+
+local Players, RunService, CoreGui, UserInputService, Lighting = game:GetService("Players"), game:GetService("RunService"), game:GetService("CoreGui"), game:GetService("UserInputService"), game:GetService("Lighting")
+local lp = Players.LocalPlayer
+
+local CRED_NOME = string.char(77,105,99,104,101,108,32,80,101,114,101,105,114,97)
+local CRED_IG = string.char(64,101,120,114,101,105,46,49,57,57,57)
+local CRED_TEXTO = CRED_NOME .. "  |  " .. CRED_IG
+
+-- [[ TELA DE ABERTURA: 10s + TOQUE PARA CONTINUAR (o script só carrega depois) ]]
+do
+    local intro, blur, rsConn
+    pcall(function()
+        local TweenService = game:GetService("TweenService")
+        local TextService = game:GetService("TextService")
+
+        intro = Instance.new("ScreenGui")
+        intro.Name = ID_SCRIPT .. "_Intro"
+        intro.IgnoreGuiInset = true
+        intro.DisplayOrder = 999
+        intro.ResetOnSpawn = false
+        intro.Parent = CoreGui
+        _G.QuantumIntroGui = intro
+
+        blur = Instance.new("BlurEffect")
+        blur.Name = "QuantumBlur"
+        blur.Size = 0
+        blur.Parent = Lighting
+
+        -- fundo escurecido (também é o botão que recebe o toque)
+        local fundo = Instance.new("TextButton", intro)
+        fundo.Size = UDim2.new(1, 0, 1, 0)
+        fundo.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        fundo.BackgroundTransparency = 1
+        fundo.BorderSizePixel = 0
+        fundo.Text = ""
+        fundo.AutoButtonColor = false
+        fundo.Active = true
+
+        local fade = {}
+        local function MkLabel(parent, txt, pos, size, cor, maxTexto)
+            local l = Instance.new("TextLabel", parent)
+            l.Position = pos
+            l.Size = size
+            l.BackgroundTransparency = 1
+            l.Text = txt
+            l.Font = Enum.Font.GothamBold
+            l.TextColor3 = cor
+            l.TextScaled = true
+            l.TextTransparency = 1
+            l.TextStrokeTransparency = 1
+            local c = Instance.new("UITextSizeConstraint", l)
+            c.MaxTextSize = maxTexto
+            table.insert(fade, l)
+            return l
+        end
+
+        -- 25% acima da metade de baixo: TÍTULO (topo 25% da tela fica livre)
+        MkLabel(fundo, "Criado por: " .. CRED_NOME, UDim2.new(0, 0, 0.26, 0), UDim2.new(1, 0, 0.10, 0), Color3.fromRGB(255, 255, 255), 40)
+        MkLabel(fundo, "Sigam-nos no Instagram", UDim2.new(0, 0, 0.36, 0), UDim2.new(1, 0, 0.06, 0), Color3.fromRGB(210, 210, 210), 24)
+        MkLabel(fundo, CRED_IG, UDim2.new(0, 0, 0.42, 0), UDim2.new(1, 0, 0.07, 0), Color3.fromRGB(0, 255, 100), 30)
+
+        -- 50% de baixo: faixa com textos rolando
+        local faixa = Instance.new("Frame", fundo)
+        faixa.Position = UDim2.new(0, 0, 0.5, 0)
+        faixa.Size = UDim2.new(1, 0, 0.5, 0)
+        faixa.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        faixa.BackgroundTransparency = 1
+        faixa.BorderSizePixel = 0
+        faixa.ClipsDescendants = true
+
+        local unitTexto = "CRIADO POR: " .. string.upper(CRED_NOME) .. "   •   SIGAM-NOS NO INSTAGRAM   •   " .. CRED_IG .. "   •   "
+        local unit = TextService:GetTextSize(unitTexto, 22, Enum.Font.GothamBold, Vector2.new(100000, 100)).X
+        local repeticoes = 12
+
+        local function MkLinha(yScale, cor)
+            local row = Instance.new("Frame", faixa)
+            row.Position = UDim2.new(0, 0, yScale, 0)
+            row.Size = UDim2.new(1, 0, 0, 34)
+            row.BackgroundTransparency = 1
+            row.ClipsDescendants = true
+            local l = Instance.new("TextLabel", row)
+            l.Size = UDim2.new(0, unit * repeticoes, 1, 0)
+            l.BackgroundTransparency = 1
+            l.Text = string.rep(unitTexto, repeticoes)
+            l.Font = Enum.Font.GothamBold
+            l.TextSize = 22
+            l.TextColor3 = cor
+            l.TextXAlignment = Enum.TextXAlignment.Left
+            l.TextTransparency = 1
+            table.insert(fade, l)
+            return l
+        end
+        local m1 = MkLinha(0.12, Color3.fromRGB(255, 255, 255))
+        local m2 = MkLinha(0.34, Color3.fromRGB(0, 255, 100))
+
+        local aviso = MkLabel(faixa, "", UDim2.new(0, 0, 0.78, 0), UDim2.new(1, 0, 0, 30), Color3.fromRGB(255, 255, 255), 20)
+
+        local t0 = tick()
+        rsConn = RunService.RenderStepped:Connect(function()
+            local off = (tick() - t0) * 90
+            m1.Position = UDim2.new(0, -(off % unit), 0, 0)
+            m2.Position = UDim2.new(0, -unit + (off % unit), 0, 0)
+        end)
+
+        -- entrada
+        local entrada = TweenInfo.new(0.7)
+        TweenService:Create(blur, entrada, {Size = 40}):Play()
+        TweenService:Create(fundo, entrada, {BackgroundTransparency = 0.4}):Play()
+        TweenService:Create(faixa, entrada, {BackgroundTransparency = 0.35}):Play()
+        for _, l in ipairs(fade) do
+            TweenService:Create(l, entrada, {TextTransparency = 0, TextStrokeTransparency = 0.6}):Play()
+        end
+
+        -- 10 segundos de espera
+        for i = 10, 1, -1 do
+            aviso.Text = "Aguarde " .. i .. "s..."
+            task.wait(1)
+        end
+
+        -- depois dos 10s, fica parado até o toque
+        aviso.Text = "Toque na tela para continuar"
+        aviso.TextColor3 = Color3.fromRGB(0, 255, 100)
+        fundo.Activated:Wait()
+
+        -- saída
+        local saida = TweenInfo.new(0.8)
+        TweenService:Create(blur, saida, {Size = 0}):Play()
+        TweenService:Create(fundo, saida, {BackgroundTransparency = 1}):Play()
+        TweenService:Create(faixa, saida, {BackgroundTransparency = 1}):Play()
+        for _, l in ipairs(fade) do
+            TweenService:Create(l, saida, {TextTransparency = 1, TextStrokeTransparency = 1}):Play()
+        end
+        task.wait(0.9)
+    end)
+    if rsConn then pcall(function() rsConn:Disconnect() end) end
+    pcall(function() if blur then blur:Destroy() end end)
+    pcall(function() if intro then intro:Destroy() end end)
+    _G.QuantumIntroGui = nil
+end
+
+local ScreenGui = Instance.new("ScreenGui", CoreGui)
+ScreenGui.Name = ID_SCRIPT
+_G.QuantumAtivo = ScreenGui
+
+-- CORES
+local COR_ON = Color3.fromRGB(0, 255, 100)
+local COR_OFF = Color3.fromRGB(15, 15, 15)
+local COR_INCLINADA = Color3.fromRGB(255, 170, 0)
+local COR_VERMELHA = Color3.fromRGB(255, 60, 60)
+local TEMPO_HOLD = 0.5
+
+-- FUNÇÃO ARRASTAR NORMAL (PAINEL E BOLINHA)
+local function MakeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            dragging = true; dragStart = input.Position; startPos = frame.Position
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then dragInput = input end
+    end)
+    Track(UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end))
+    Track(UserInputService.InputEnded:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then dragging = false end
+    end))
+end
+
+-- FUNÇÃO ARRASTAR COM HOLD DE 1 SEGUNDO (BOTÕES FLUTUANTES)
+local function MakeDraggableWithHold(frame)
+    local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
+    local holdTimer = nil
+    local isHolding = false
+
+    frame.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            isHolding = true
+            local startTime = tick()
+            if holdTimer then task.cancel(holdTimer) end
+            holdTimer = task.spawn(function()
+                while isHolding do
+                    if tick() - startTime >= 1.0 then
+                        dragging = true
+                        dragStart = input.Position
+                        startPos = frame.Position
+                        break
+                    end
+                    task.wait(0.02)
+                end
+            end)
+        end
+    end)
+
+    frame.InputChanged:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            dragInput = input
+        end
+    end)
+
+    Track(UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end))
+
+    frame.InputEnded:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            isHolding = false
+            dragging = false
+            if holdTimer then task.cancel(holdTimer); holdTimer = nil end
+        end
+    end)
+end
+
+-- TOQUE CURTO x SEGURAR (ignora se o dedo arrastou, ex: rolando a lista)
+local function TapOuHold(btn, tempo, onTap, onHold)
+    local ativo, segurou, inicio = nil, false, Vector3.zero
+    btn.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) and not ativo then
+            ativo = input; segurou = false; inicio = input.Position
+            task.delay(tempo, function()
+                if ativo == input and not segurou and (input.Position - inicio).Magnitude < 15 then
+                    segurou = true
+                    onHold()
+                end
+            end)
+        end
+    end)
+    btn.InputEnded:Connect(function(input)
+        if input == ativo then
+            local moveu = (input.Position - inicio).Magnitude >= 15
+            ativo = nil
+            if not segurou and not moveu then onTap() end
+            segurou = false
+        end
+    end)
+end
+
+-- [[ PAINEL PRINCIPAL ]]
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 220, 0, 480)
+MainFrame.Position = UDim2.new(0.60, 0, -0.15, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+MainFrame.BackgroundTransparency = 1
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Color3.fromRGB(255, 255, 255); MainStroke.Thickness = 1.5
+local MainStrokeOutline = Instance.new("UIStroke", MainFrame)
+MainStrokeOutline.Color = Color3.fromRGB(0, 0, 0); MainStrokeOutline.Thickness = 2.5
+
+local MainBackground = Instance.new("ImageLabel", MainFrame)
+MainBackground.Size = UDim2.new(1, 0, 1, 0)
+MainBackground.BackgroundTransparency = 1
+MainBackground.Image = "rbxassetid://90792083538887"
+MainBackground.ScaleType = Enum.ScaleType.Crop
+MainBackground.ZIndex = 0
+Instance.new("UICorner", MainBackground).CornerRadius = UDim.new(0, 6)
+
+-- ABAS
+local TabContainer = Instance.new("Frame", MainFrame)
+TabContainer.Size = UDim2.new(1, 0, 0, 35)
+TabContainer.BackgroundTransparency = 1
+TabContainer.ZIndex = 3
+
+local BtnMov = Instance.new("TextButton", TabContainer)
+BtnMov.Size = UDim2.new(0.5, 0, 1, 0)
+BtnMov.Text = "MOVIMENTO"
+BtnMov.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BtnMov.BackgroundTransparency = 0.55
+BtnMov.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnMov.Font = Enum.Font.SourceSansBold
+BtnMov.ZIndex = 3
+
+local BtnCom = Instance.new("TextButton", TabContainer)
+BtnCom.Size = UDim2.new(0.5, 0, 1, 0)
+BtnCom.Position = UDim2.new(0.5, 0, 0, 0)
+BtnCom.Text = "COMBATE"
+BtnCom.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BtnCom.BackgroundTransparency = 0.85
+BtnCom.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnCom.Font = Enum.Font.SourceSansBold
+BtnCom.ZIndex = 3
+
+local FrameMov = Instance.new("ScrollingFrame", MainFrame)
+FrameMov.Size = UDim2.new(1, 0, 1, -40)
+FrameMov.Position = UDim2.new(0, 0, 0, 40)
+FrameMov.BackgroundTransparency = 1
+FrameMov.ScrollBarThickness = 2
+FrameMov.ZIndex = 2
+
+local FrameCom = Instance.new("ScrollingFrame", MainFrame)
+FrameCom.Size = UDim2.new(1, 0, 1, -40)
+FrameCom.Position = UDim2.new(0, 0, 0, 40)
+FrameCom.BackgroundTransparency = 1
+FrameCom.Visible = false
+FrameCom.ScrollBarThickness = 2
+FrameCom.ZIndex = 2
+
+BtnMov.MouseButton1Click:Connect(function()
+    FrameMov.Visible = true; FrameCom.Visible = false
+    BtnMov.BackgroundTransparency = 0.55
+    BtnCom.BackgroundTransparency = 0.85
+end)
+
+BtnCom.MouseButton1Click:Connect(function()
+    FrameMov.Visible = false; FrameCom.Visible = true
+    BtnMov.BackgroundTransparency = 0.85
+    BtnCom.BackgroundTransparency = 0.55
+end)
+
+-- [[ BOLINHA MINIMIZAR ]]
+local FloatingBtn = Instance.new("TextButton", ScreenGui)
+FloatingBtn.Size = UDim2.new(0, 60, 0, 60); FloatingBtn.Position = UDim2.new(0.5, -30, 0.1, 0)
+FloatingBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0); FloatingBtn.Text = ""; FloatingBtn.Visible = false
+Instance.new("UICorner", FloatingBtn).CornerRadius = UDim.new(1, 0)
+MakeDraggable(FloatingBtn)
+
+local MeguminIcon = Instance.new("ImageLabel", FloatingBtn)
+MeguminIcon.Size = UDim2.new(1, 0, 1, 0); MeguminIcon.BackgroundTransparency = 1; MeguminIcon.Image = "rbxassetid://96075396283694"
+Instance.new("UICorner", MeguminIcon).CornerRadius = UDim.new(1, 0)
+
+local MeguminStroke = Instance.new("UIStroke", MeguminIcon)
+MeguminStroke.Color = Color3.fromRGB(0, 0, 0); MeguminStroke.Thickness = 1.8
+
+local MinBtn = Instance.new("TextButton", TabContainer)
+MinBtn.Size = UDim2.new(0, 25, 0, 25); MinBtn.Position = UDim2.new(1, -28, 0.5, -12); MinBtn.Text = "-"; MinBtn.ZIndex = 5
+MinBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0); MinBtn.BackgroundTransparency = 0.65; MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 4)
+MinBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; FloatingBtn.Visible = true end)
+FloatingBtn.MouseButton1Click:Connect(function() MainFrame.Visible = true; FloatingBtn.Visible = false end)
+
+-- [[ CRÉDITOS DO CRIADOR (NÃO REMOVER) ]]
+
+local function CriarFaixaCredito()
+    local velha = MainFrame:FindFirstChild("QCred")
+    if velha then velha:Destroy() end
+    local f = Instance.new("TextLabel")
+    f.Name = "QCred"
+    f.Size = UDim2.new(1, 0, 0, 20)
+    f.Position = UDim2.new(0, 0, 1, -20)
+    f.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    f.BackgroundTransparency = 0.35
+    f.BorderSizePixel = 0
+    f.Text = CRED_TEXTO
+    f.TextColor3 = Color3.fromRGB(255, 255, 255)
+    f.TextStrokeTransparency = 0.5
+    f.Font = Enum.Font.SourceSansBold
+    f.TextSize = 12
+    f.ZIndex = 20
+    f.Parent = MainFrame
+end
+
+local function FaixaOk()
+    local f = MainFrame:FindFirstChild("QCred")
+    return f ~= nil and f:IsA("TextLabel") and f.Visible and f.Text == CRED_TEXTO
+        and f.TextTransparency == 0 and f.BackgroundTransparency <= 0.6 and f.Size.Y.Offset >= 15
+end
+
+CriarFaixaCredito()
+task.spawn(function()
+    while ScreenGui.Parent do
+        pcall(function() if not FaixaOk() then CriarFaixaCredito() end end)
+        task.wait(0.5)
+    end
+end)
+
+-- [[ VALORES PADRÃO ]]
+local function PuloPadrao(h)
+    if not h then return 50 end
+    if h.UseJumpPower then return math.max(1, math.floor(h.JumpPower)) end
+    return math.max(1, math.floor(math.sqrt(2 * workspace.Gravity * h.JumpHeight)))
+end
+
+local humInicial = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+local VEL_PADRAO = (humInicial and humInicial.WalkSpeed > 0) and math.floor(humInicial.WalkSpeed) or 16
+local PULO_PADRAO = PuloPadrao(humInicial)
+
+-- [[ SLIDERS ]]
+local ForcaVel, ForcaPulo = VEL_PADRAO, PULO_PADRAO
+
+local function CreateSlider(txt, posY)
+    local textBg = Instance.new("Frame", FrameMov)
+    textBg.Size = UDim2.new(0.85, 0, 0, 16)
+    textBg.Position = UDim2.new(0.075, 0, 0, posY)
+    textBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    textBg.BackgroundTransparency = 0.65
+    textBg.BorderSizePixel = 0
+    textBg.ZIndex = 2
+    Instance.new("UICorner", textBg).CornerRadius = UDim.new(0, 4)
+
+    local lab = Instance.new("TextLabel", textBg); lab.Size = UDim2.new(0.95, 0, 1, 0); lab.Position = UDim2.new(0.05, 0, 0, 0); lab.Text = txt .. "0"; lab.TextColor3 = Color3.fromRGB(255, 255, 255); lab.BackgroundTransparency = 1; lab.TextSize = 11; lab.ZIndex = 3; lab.Font = Enum.Font.SourceSansBold; lab.TextXAlignment = Enum.TextXAlignment.Left
+
+    local base = Instance.new("Frame", FrameMov); base.Size = UDim2.new(0.75, 0, 0, 3); base.Position = UDim2.new(0.08, 0, 0, posY + 19); base.BackgroundColor3 = Color3.fromRGB(255, 255, 255); base.ZIndex = 2; base.BorderSizePixel = 0
+    local baseStroke = Instance.new("UIStroke", base); baseStroke.Color = Color3.fromRGB(0, 0, 0); baseStroke.Thickness = 1.2
+
+    local visualBtn = Instance.new("ImageLabel", base); visualBtn.Size = UDim2.new(0, 20, 0, 20); visualBtn.Position = UDim2.new(0, -10, 0.5, -10); visualBtn.Image = "rbxassetid://96075396283694"; visualBtn.ZIndex = 3
+    Instance.new("UICorner", visualBtn).CornerRadius = UDim.new(1, 0)
+
+    local sensor = Instance.new("TextButton", base); sensor.Size = UDim2.new(0, 40, 0, 40); sensor.Position = UDim2.new(0, -20, 0.5, -20); sensor.BackgroundTransparency = 1; sensor.Text = ""; sensor.ZIndex = 4
+    local state = {activeInput = nil}
+    return lab, base, sensor, visualBtn, state
+end
+
+local vLab, vBase, vSensor, vVisual, vState = CreateSlider("Velocidade: ", 10)
+local jLab, jBase, jSensor, jVisual, jState = CreateSlider("Altura Pulo: ", 62)
+
+local function HandleSlider(sensor, visual, base, lab, prefix, max, state, inicial)
+    local p0 = math.clamp(inicial / max, 0, 1)
+    sensor.Position = UDim2.new(p0, -20, 0.5, -20); visual.Position = UDim2.new(p0, -10, 0.5, -10); lab.Text = prefix .. inicial
+
+    sensor.InputBegan:Connect(function(i) if (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1) and not state.activeInput then state.activeInput = i end end)
+    Track(UserInputService.InputEnded:Connect(function(i) if i == state.activeInput then state.activeInput = nil end end))
+    Track(RunService.RenderStepped:Connect(function()
+        if state.activeInput then
+            local p = math.clamp((state.activeInput.Position.X - base.AbsolutePosition.X) / base.AbsoluteSize.X, 0, 1)
+            sensor.Position = UDim2.new(p, -20, 0.5, -20); visual.Position = UDim2.new(p, -10, 0.5, -10); lab.Text = prefix .. math.floor(p * max)
+            if prefix == "Velocidade: " then ForcaVel = math.floor(p * max) else ForcaPulo = math.floor(p * max) end
+        end
+    end))
+end
+HandleSlider(vSensor, vVisual, vBase, vLab, "Velocidade: ", 750, vState, ForcaVel)
+HandleSlider(jSensor, jVisual, jBase, jLab, "Altura Pulo: ", 750, jState, ForcaPulo)
+
+-- [[ CRIAÇÃO DE LINHAS/SEGMENTOS DE BOTÃO ]]
+local function CriarSegmento(parent, txt, size, pos, semLed)
+    local b = Instance.new("TextButton", parent)
+    b.Size = size
+    b.Position = pos
+    b.Text = ""
+    b.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    b.BackgroundTransparency = 0.75
+    b.BorderSizePixel = 0
+    b.ZIndex = 2
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+
+    local label = Instance.new("TextLabel", b)
+    label.BackgroundTransparency = 1
+    label.Text = txt
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 11
+    label.ZIndex = 3
+    label.Font = Enum.Font.SourceSansBold
+
+    local textStroke = Instance.new("UIStroke", label)
+    textStroke.Color = Color3.fromRGB(0, 0, 0); textStroke.Thickness = 1.2
+
+    if semLed then
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.Position = UDim2.new(0, 0, 0, 0)
+        label.TextXAlignment = Enum.TextXAlignment.Center
+        return b, nil, nil, label
+    end
+
+    label.Size = UDim2.new(1, -30, 1, 0)
+    label.Position = UDim2.new(0, 30, 0, 0)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local led = Instance.new("Frame", b)
+    led.Size = UDim2.new(0, 8, 0, 8); led.Position = UDim2.new(0, 10, 0.5, -4); led.BackgroundColor3 = COR_OFF; led.BorderSizePixel = 0; led.ZIndex = 3
+    Instance.new("UICorner", led).CornerRadius = UDim.new(0, 2)
+
+    local ledStroke = Instance.new("UIStroke", led)
+    ledStroke.Color = Color3.fromRGB(255, 255, 255); ledStroke.Thickness = 0.5; ledStroke.Transparency = 0.3
+
+    return b, led, ledStroke, label
+end
+
+local countMov, countCom = 115, 15
+
+local function AddBtn(parent, txt, setupCallback, clickCallback, holdCallback)
+    local posY = (parent == FrameMov) and countMov or countCom
+    if parent == FrameMov then countMov = countMov + 45 else countCom = countCom + 45 end
+
+    local b, led, ledStroke = CriarSegmento(parent, txt, UDim2.new(0.85, 0, 0, 32), UDim2.new(0.075, 0, 0, posY))
+
+    local function updateVisual(state, especial)
+        local cor = COR_ON
+        if typeof(especial) == "Color3" then cor = especial elseif especial then cor = COR_INCLINADA end
+        led.BackgroundColor3 = state and cor or COR_OFF
+        ledStroke.Color = especial and cor or Color3.fromRGB(255, 255, 255)
+    end
+
+    setupCallback(updateVisual)
+    if holdCallback then
+        TapOuHold(b, TEMPO_HOLD, function() clickCallback(updateVisual) end, function() holdCallback(updateVisual) end)
+    else
+        b.MouseButton1Click:Connect(function() clickCallback(updateVisual) end)
+    end
+    return b
+end
+
+-- VARIÁVEIS
+local SpeedOn, JumpOn, ModoCriativoOn, BotoesVooOn, NoClipOn, EspOn, EliminarTudoOn, LockPlayerOn, LockNpcOn, FugirPerigoOn = false, false, false, false, false, false, false, false, false, false
+local MiraPlayerInclinada, MiraNpcInclinada = false, false
+local CurrentTarget, CurrentTargetTipo = nil, nil
+local ultimaBuscaMira = 0
+local NivelFuga = 1
+
+local SubindoPorBotao = false
+local DescendoPorBotao = false
+
+-- [[ ELIMINAR TUDO ]]
+local NivelElim = 1
+local NIVEL_CLASSE = {
+    ParticleEmitter = 1, Trail = 1, Beam = 1, Smoke = 1, Fire = 1, Sparkles = 1, Explosion = 1,
+    PointLight = 1, SpotLight = 1, SurfaceLight = 1,
+    Texture = 2, SurfaceAppearance = 2, Animator = 2,
+    Decal = 3, ImageLabel = 3, ImageButton = 3, Sound = 3, Highlight = 3,
+    Atmosphere = 3, Sky = 3, Clouds = 3, Shirt = 3, Pants = 3, ShirtGraphic = 3, CharacterMesh = 3,
+}
+local COR_NIVEL = {[2] = COR_INCLINADA, [3] = COR_VERMELHA}
+local function CorNivel() return COR_NIVEL[NivelElim] end
+
+local ElimOriginais = setmetatable({}, {__mode = "k"})
+local ElimRemovidos = {}
+local ElimLighting = nil
+local ElimTerrainDeco = nil
+local ElimOcupado = false
+
+local function NivelDe(v)
+    local n = NIVEL_CLASSE[v.ClassName]
+    if n then return n end
+    if v:IsA("PostEffect") then return 1 end
+    return nil
+end
+
+local function AplicarPropsParte(part, o, nivel)
+    part.CastShadow = (nivel >= 1) and false or o[2]
+    if nivel >= 2 then
+        part.Material = Enum.Material.SmoothPlastic
+        part.Reflectance = 0
+        if o[4] ~= nil then part.TextureID = "" end
+    else
+        if part.Material ~= o[1] then part.Material = o[1] end
+        if part.Reflectance ~= o[3] then part.Reflectance = o[3] end
+        if o[4] ~= nil and part.TextureID ~= o[4] then part.TextureID = o[4] end
+    end
+end
+
+local function ProcessarInstancia(v, guardar)
+    local nv = NivelDe(v)
+    if nv then
+        if nv <= NivelElim then
+            if v.ClassName == "Animator" and lp.Character and v:IsDescendantOf(lp.Character) then return end
+            if guardar then
+                table.insert(ElimRemovidos, {v, v.Parent, nv})
+                v.Parent = nil
+            else
+                v:Destroy()
+            end
+        end
+    elseif v:IsA("BasePart") and not v:IsA("Terrain") then
+        local o = ElimOriginais[v]
+        if not o then
+            o = {v.Material, v.CastShadow, v.Reflectance, v:IsA("MeshPart") and v.TextureID or nil}
+            ElimOriginais[v] = o
+        end
+        AplicarPropsParte(v, o, NivelElim)
+    end
+end
+
+local function Varrer(lista)
+    for i, v in ipairs(lista) do
+        if not EliminarTudoOn then return end
+        pcall(ProcessarInstancia, v, true)
+        if i % 400 == 0 then task.wait() end
+    end
+end
+
+local function EliminarTudoAgora()
+    ElimOcupado = true
+    task.spawn(function()
+        pcall(function()
+            if not ElimLighting then
+                ElimLighting = {GlobalShadows = Lighting.GlobalShadows, FogEnd = Lighting.FogEnd}
+            end
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 9e9
+        end)
+        pcall(function()
+            local t = workspace.Terrain
+            if ElimTerrainDeco == nil then ElimTerrainDeco = t.Decoration end
+            t.Decoration = false
+        end)
+        Varrer(Lighting:GetChildren())
+        Varrer(workspace:GetDescendants())
+        ElimOcupado = false
+    end)
+end
+
+local function RestaurarTudo(nivelAlvo)
+    task.spawn(function()
+        while ElimOcupado do task.wait() end
+        ElimOcupado = true
+
+        local lista = ElimRemovidos
+        local manter = {}
+        ElimRemovidos = manter
+        for i = #lista, 1, -1 do
+            local item = lista[i]
+            if item[3] > nivelAlvo then
+                pcall(function()
+                    if item[2] and item[2]:IsDescendantOf(game) then item[1].Parent = item[2] end
+                end)
+            else
+                manter[#manter + 1] = item
+            end
+            if i % 400 == 0 then task.wait() end
+        end
+
+        local partes = {}
+        for part, o in pairs(ElimOriginais) do partes[#partes + 1] = {part, o} end
+        if nivelAlvo == 0 then ElimOriginais = setmetatable({}, {__mode = "k"}) end
+        for i, item in ipairs(partes) do
+            pcall(AplicarPropsParte, item[1], item[2], nivelAlvo)
+            if i % 400 == 0 then task.wait() end
+        end
+
+        if nivelAlvo == 0 then
+            pcall(function()
+                if ElimLighting then
+                    Lighting.GlobalShadows = ElimLighting.GlobalShadows
+                    Lighting.FogEnd = ElimLighting.FogEnd
+                    ElimLighting = nil
+                end
+            end)
+            pcall(function()
+                if ElimTerrainDeco ~= nil then
+                    workspace.Terrain.Decoration = ElimTerrainDeco
+                    ElimTerrainDeco = nil
+                end
+            end)
+        end
+        ElimOcupado = false
+    end)
+end
+
+local function MudarNivelElim(novo)
+    local antigo = NivelElim
+    NivelElim = novo
+    if not EliminarTudoOn then return end
+    if novo > antigo then EliminarTudoAgora() else RestaurarTudo(novo) end
+end
+
+_G.QuantumRestaurar = function()
+    EliminarTudoOn = false
+    RestaurarTudo(0)
+end
+
+local function AoAdicionar(v)
+    if EliminarTudoOn then
+        task.defer(function() pcall(ProcessarInstancia, v, v.ClassName == "Animator") end)
+    end
+end
+Track(workspace.DescendantAdded:Connect(AoAdicionar))
+Track(Lighting.DescendantAdded:Connect(AoAdicionar))
+
+-- [[ BOTÕES DE VOO FLUTUANTES ]]
+local UpBtn = Instance.new("TextButton", ScreenGui)
+UpBtn.Size = UDim2.new(0, 52, 0, 52); UpBtn.Position = UDim2.new(0.82, -65, 0.60, 0); UpBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); UpBtn.BackgroundTransparency = 0.5; UpBtn.Text = ""; UpBtn.ZIndex = 10; UpBtn.Visible = false
+Instance.new("UICorner", UpBtn).CornerRadius = UDim.new(1, 0)
+local UpStroke = Instance.new("UIStroke", UpBtn); UpStroke.Color = Color3.fromRGB(255, 255, 255); UpStroke.Thickness = 1.5; UpStroke.Transparency = 0.2
+local UpIcon = Instance.new("ImageLabel", UpBtn); UpIcon.Size = UDim2.new(0.6, 0, 0.6, 0); UpIcon.Position = UDim2.new(0.2, 0, 0.2, 0); UpIcon.BackgroundTransparency = 1; UpIcon.Image = "rbxassetid://6034818372"; UpIcon.ImageColor3 = Color3.fromRGB(255, 255, 255); UpIcon.ZIndex = 11
+MakeDraggableWithHold(UpBtn)
+
+local DownBtn = Instance.new("TextButton", ScreenGui)
+DownBtn.Size = UDim2.new(0, 52, 0, 52); DownBtn.Position = UDim2.new(0.82, -65, 0.71, 0); DownBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); DownBtn.BackgroundTransparency = 0.5; DownBtn.Text = ""; DownBtn.ZIndex = 10; DownBtn.Visible = false
+Instance.new("UICorner", DownBtn).CornerRadius = UDim.new(1, 0)
+local DownStroke = Instance.new("UIStroke", DownBtn); DownStroke.Color = Color3.fromRGB(255, 255, 255); DownStroke.Thickness = 1.5; DownStroke.Transparency = 0.2
+local DownIcon = Instance.new("ImageLabel", DownBtn); DownIcon.Size = UDim2.new(0.6, 0, 0.6, 0); DownIcon.Position = UDim2.new(0.2, 0, 0.2, 0); DownIcon.BackgroundTransparency = 1; DownIcon.Image = "rbxassetid://6034818372"; DownIcon.ImageColor3 = Color3.fromRGB(255, 255, 255); DownIcon.Rotation = 180; DownIcon.ZIndex = 11
+MakeDraggableWithHold(DownBtn)
+
+local function AtualizarVisibilidadeBotoesVoo()
+    UpBtn.Visible = BotoesVooOn
+    DownBtn.Visible = BotoesVooOn
+end
+
+DownBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then SubindoPorBotao = true end end)
+DownBtn.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then SubindoPorBotao = false end end)
+UpBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then DescendoPorBotao = true end end)
+UpBtn.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then DescendoPorBotao = false end end)
+
+-- [[ MANUAL (botão sem LED + tela de ajuda cobrindo o painel todo) ]]
+local ManualFrame = Instance.new("Frame", MainFrame)
+ManualFrame.Name = "QManual"
+ManualFrame.Size = UDim2.new(1, 0, 1, 0)
+ManualFrame.Position = UDim2.new(0, 0, 0, 0)
+ManualFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ManualFrame.BackgroundTransparency = 0.1
+ManualFrame.BorderSizePixel = 0
+ManualFrame.ClipsDescendants = true
+ManualFrame.Visible = false
+ManualFrame.ZIndex = 30
+Instance.new("UICorner", ManualFrame).CornerRadius = UDim.new(0, 6)
+
+local ManualTitulo = Instance.new("TextLabel", ManualFrame)
+ManualTitulo.Size = UDim2.new(1, -60, 0, 44)
+ManualTitulo.Position = UDim2.new(0, 10, 0, 0)
+ManualTitulo.BackgroundTransparency = 1
+ManualTitulo.Text = "MANUAL"
+ManualTitulo.TextXAlignment = Enum.TextXAlignment.Left
+ManualTitulo.Font = Enum.Font.SourceSansBold
+ManualTitulo.TextSize = 22
+ManualTitulo.TextColor3 = COR_ON
+ManualTitulo.ZIndex = 31
+
+local ManualScroll = Instance.new("ScrollingFrame", ManualFrame)
+ManualScroll.Size = UDim2.new(1, -8, 1, -92)
+ManualScroll.Position = UDim2.new(0, 4, 0, 48)
+ManualScroll.BackgroundTransparency = 1
+ManualScroll.BorderSizePixel = 0
+ManualScroll.ScrollBarThickness = 3
+ManualScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+ManualScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ManualScroll.ZIndex = 31
+
+local ManualTexto = Instance.new("TextLabel", ManualScroll)
+ManualTexto.Size = UDim2.new(1, -6, 0, 0)
+ManualTexto.AutomaticSize = Enum.AutomaticSize.Y
+ManualTexto.BackgroundTransparency = 1
+ManualTexto.TextWrapped = true
+ManualTexto.RichText = true
+ManualTexto.TextXAlignment = Enum.TextXAlignment.Left
+ManualTexto.TextYAlignment = Enum.TextYAlignment.Top
+ManualTexto.Font = Enum.Font.SourceSans
+ManualTexto.TextSize = 15
+ManualTexto.TextColor3 = Color3.fromRGB(255, 255, 255)
+ManualTexto.ZIndex = 32
+local ManualPad = Instance.new("UIPadding", ManualTexto)
+ManualPad.PaddingBottom = UDim.new(0, 80)
+ManualTexto.Text = [[<font color="#00ff64"><b>O MAIS IMPORTANTE</b></font>
+
+<b>OTIMIZAÇÃO</b>
+Tocar: liga/desliga.
+Segurar: troca o nível (LED verde = 1, laranja = 2, vermelho = 3). Quanto maior o nível, mais leve fica o jogo e menos efeitos e imagens aparecem.
+
+<b>PONTO SPAWN 1 a 4</b>
+1º toque: salva onde você está.
+Toque duplo rápido: teleporta pro ponto.
+Tocar 1 vez e esperar: voa até o ponto (tocar de novo cancela).
+Segurar um pouco: apaga o ponto salvo.
+Caixinha [n]: velocidade do voo, de 1 a 10. Tocar aumenta, segurar volta pra 1.
+
+<b>MIRA PLAYER e MIRA NPC</b>
+Tocar: liga/desliga.
+Segurar: mira inclinada (LED laranja), mira um pouco mais baixo.
+
+<b>FUGIR DO PERIGO</b>
+Quando você toma dano, ele te joga pra longe. Caixinha [n] de 1 a 15: quanto maior, mais longe você vai. Segurar volta pra 1.
+
+<b>BOTÕES DE VOO</b>
+Segurar 1 segundo e arrastar pra mudar de lugar.
+
+<font color="#00ff64"><b>RESUMO DO RESTO</b></font>
+
+<b>VELOCIDADE</b> e <b>PULO ELEVADOR</b>: usam os sliders lá em cima.
+<b>MODO CRIATIVO</b>: você voa. Sobe e desce pelos botões de voo.
+<b>ATRAVESSAR PAREDES</b>: passa por tudo.
+<b>ESP PLAYER</b>: mostra nome e distância dos outros jogadores.]]
+
+-- BOTÃO X (vermelho, grande, no canto)
+local ManualX = Instance.new("TextButton", ManualFrame)
+ManualX.Size = UDim2.new(0, 38, 0, 38)
+ManualX.Position = UDim2.new(1, -44, 0, 3)
+ManualX.BackgroundColor3 = COR_VERMELHA
+ManualX.BorderSizePixel = 0
+ManualX.Text = "X"
+ManualX.TextColor3 = Color3.fromRGB(255, 255, 255)
+ManualX.Font = Enum.Font.GothamBold
+ManualX.TextSize = 22
+ManualX.ZIndex = 33
+Instance.new("UICorner", ManualX).CornerRadius = UDim.new(0, 8)
+local ManualXStroke = Instance.new("UIStroke", ManualX)
+ManualXStroke.Color = Color3.fromRGB(255, 255, 255); ManualXStroke.Thickness = 2
+ManualX.MouseButton1Click:Connect(function() ManualFrame.Visible = false end)
+
+local ManualFechar = Instance.new("TextButton", ManualFrame)
+ManualFechar.Size = UDim2.new(1, -8, 0, 34)
+ManualFechar.Position = UDim2.new(0, 4, 1, -38)
+ManualFechar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ManualFechar.BackgroundTransparency = 0.2
+ManualFechar.BorderSizePixel = 0
+ManualFechar.Text = "FECHAR"
+ManualFechar.TextColor3 = Color3.fromRGB(255, 255, 255)
+ManualFechar.Font = Enum.Font.SourceSansBold
+ManualFechar.TextSize = 14
+ManualFechar.ZIndex = 33
+Instance.new("UICorner", ManualFechar).CornerRadius = UDim.new(0, 6)
+ManualFechar.MouseButton1Click:Connect(function() ManualFrame.Visible = false end)
+
+-- BOTÃO MANUAL na lista (sem LED, com 2 bolinhas verdes fixas nas laterais)
+local posYManual = countMov
+countMov = countMov + 45
+local BtnManual = CriarSegmento(FrameMov, "MANUAL", UDim2.new(0.85, 0, 0, 32), UDim2.new(0.075, 0, 0, posYManual), true)
+for _, lado in ipairs({0, 1}) do
+    local d = Instance.new("Frame", BtnManual)
+    d.Size = UDim2.new(0, 10, 0, 10)
+    d.Position = (lado == 0) and UDim2.new(0, 10, 0.5, -5) or UDim2.new(1, -20, 0.5, -5)
+    d.BackgroundColor3 = COR_ON
+    d.BorderSizePixel = 0
+    d.ZIndex = 4
+    Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
+    local ds = Instance.new("UIStroke", d)
+    ds.Color = Color3.fromRGB(255, 255, 255); ds.Thickness = 0.5; ds.Transparency = 0.3
+end
+BtnManual.MouseButton1Click:Connect(function() ManualFrame.Visible = true end)
+
+-- ABAS E BOTÕES
+AddBtn(FrameMov, "VELOCIDADE", function(up) up(SpeedOn) end, function(up) SpeedOn = not SpeedOn; up(SpeedOn) end)
+AddBtn(FrameMov, "PULO ELEVADOR", function(up) up(JumpOn) end, function(up) JumpOn = not JumpOn; up(JumpOn) end)
+AddBtn(FrameMov, "MODO CRIATIVO", function(up) up(ModoCriativoOn) end, function(up) ModoCriativoOn = not ModoCriativoOn; up(ModoCriativoOn) end)
+AddBtn(FrameMov, "BOTÕES DE VOO", function(up) up(BotoesVooOn) end, function(up) BotoesVooOn = not BotoesVooOn; up(BotoesVooOn); AtualizarVisibilidadeBotoesVoo() end)
+AddBtn(FrameMov, "ATRAVESSAR PAREDES", function(up) up(NoClipOn) end, function(up) NoClipOn = not NoClipOn; up(NoClipOn) end)
+
+AddBtn(FrameMov, "OTIMIZAÇÃO",
+    function(up) up(EliminarTudoOn, CorNivel()) end,
+    function(up)
+        if not EliminarTudoOn and ElimOcupado then return end
+        EliminarTudoOn = not EliminarTudoOn
+        up(EliminarTudoOn, CorNivel())
+        if EliminarTudoOn then EliminarTudoAgora() else RestaurarTudo(0) end
+    end,
+    function(up)
+        if ElimOcupado then return end
+        MudarNivelElim(NivelElim % 3 + 1)
+        up(EliminarTudoOn, CorNivel())
+    end)
+
+-- [[ FUNÇÃO DE PONTO DE SPAWN (COM VELOCIDADE ATUALIZADA EM TEMPO REAL) ]]
+local function AddSpawnButton(parent, nomeBotao)
+    local posY = countMov
+    countMov = countMov + 45
+
+    local Row = Instance.new("Frame", parent)
+    Row.Size = UDim2.new(0.85, 0, 0, 32)
+    Row.Position = UDim2.new(0.075, 0, 0, posY)
+    Row.BackgroundTransparency = 1
+    Row.BorderSizePixel = 0
+    Row.ZIndex = 2
+
+    local b, led = CriarSegmento(Row, nomeBotao, UDim2.new(0.7, -2, 1, 0), UDim2.new(0, 0, 0, 0))
+    local bVel, _, _, velLabel = CriarSegmento(Row, "[1]", UDim2.new(0.3, -2, 1, 0), UDim2.new(0.7, 2, 0, 0), true)
+
+    local nivelVoo = 1
+    TapOuHold(bVel, TEMPO_HOLD,
+        function()
+            nivelVoo = nivelVoo + 1
+            if nivelVoo > 10 then nivelVoo = 1 end
+            velLabel.Text = "[" .. nivelVoo .. "]"
+        end,
+        function()
+            nivelVoo = 1
+            velLabel.Text = "[1]"
+        end)
+
+    local savedCFrame = nil
+    local ultimoClique = 0
+    local threadHold = nil
+    local segurou = false
+    local voandoAgora = false
+    local pararVooFuncao = nil
+
+    local function teleportarParaDestino(destinoCFrame)
+        if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = lp.Character.HumanoidRootPart
+        local charParts = {}
+        for _, part in pairs(lp.Character:GetDescendants()) do
+            if part:IsA("BasePart") then table.insert(charParts, part); part.CanCollide = false end
+        end
+        hrp.Velocity = Vector3.new(0, 0, 0)
+        hrp.CFrame = destinoCFrame
+        task.wait(0.05)
+        hrp.Velocity = Vector3.new(0, 0, 0)
+        hrp.CFrame = destinoCFrame
+        if not NoClipOn then
+            task.wait(0.2)
+            for _, part in pairs(charParts) do if part and part.Parent then part.CanCollide = true end end
+        end
+    end
+
+    local function voarParaDestino(destinoCFrame)
+        if voandoAgora then
+            if pararVooFuncao then pararVooFuncao() end
+            return
+        end
+
+        if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
+        voandoAgora = true
+        local hrp = lp.Character.HumanoidRootPart
+
+        local charParts = {}
+        for _, part in pairs(lp.Character:GetDescendants()) do
+            if part:IsA("BasePart") then table.insert(charParts, part); part.CanCollide = false end
+        end
+
+        local conexaoVoo
+        pararVooFuncao = function()
+            if conexaoVoo then conexaoVoo:Disconnect() end
+            if hrp and hrp.Parent then hrp.Velocity = Vector3.new(0, 0, 0) end
+            if not NoClipOn then
+                for _, part in pairs(charParts) do if part and part.Parent then part.CanCollide = true end end
+            end
+            voandoAgora = false
+            pararVooFuncao = nil
+        end
+
+        conexaoVoo = RunService.Stepped:Connect(function(_, step)
+            local hum = hrp and hrp.Parent and hrp.Parent:FindFirstChildOfClass("Humanoid")
+            if not hrp or not hrp.Parent or not hum or hum.Health <= 0 then
+                if pararVooFuncao then pararVooFuncao() end
+                return
+            end
+
+            for _, part in ipairs(charParts) do
+                if part.CanCollide then part.CanCollide = false end
+            end
+
+            -- LÊ O `nivelVoo` DIRETO A CADA FRAME PARA ATUALIZAR EM TEMPO REAL
+            local velocidadeVoo = VEL_PADRAO * nivelVoo
+            local direcao = (destinoCFrame.Position - hrp.Position)
+            local distancia = direcao.Magnitude
+            local limite = math.max(5, velocidadeVoo * (step or 1 / 60) * 1.5)
+
+            if distancia < limite then
+                hrp.CFrame = destinoCFrame
+                if pararVooFuncao then pararVooFuncao() end
+            else
+                hrp.Velocity = direcao.Unit * velocidadeVoo
+                hrp.CFrame = CFrame.new(hrp.Position, destinoCFrame.Position)
+            end
+        end)
+        Track(conexaoVoo)
+    end
+
+    b.MouseButton1Down:Connect(function()
+        segurou = false
+        if threadHold then task.cancel(threadHold) end
+        threadHold = task.spawn(function()
+            task.wait(0.8)
+            segurou = true
+            savedCFrame = nil
+            if pararVooFuncao then pararVooFuncao() end
+            led.BackgroundColor3 = COR_OFF
+        end)
+    end)
+
+    b.MouseButton1Up:Connect(function()
+        if threadHold then task.cancel(threadHold); threadHold = nil end
+        if segurou then return end
+
+        local agora = tick()
+        local tempoDecorrido = agora - ultimoClique
+
+        if voandoAgora then
+            if pararVooFuncao then pararVooFuncao() end
+            ultimoClique = agora
+            return
+        end
+
+        if tempoDecorrido < 0.46 then
+            ultimoClique = 0
+            if savedCFrame then teleportarParaDestino(savedCFrame) end
+        else
+            ultimoClique = agora
+            if not savedCFrame then
+                if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+                    savedCFrame = lp.Character.HumanoidRootPart.CFrame
+                    led.BackgroundColor3 = COR_ON
+                end
+            else
+                task.spawn(function()
+                    task.wait(0.46)
+                    if (tick() - ultimoClique) >= 0.46 and savedCFrame and not voandoAgora then
+                        voarParaDestino(savedCFrame)
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+AddSpawnButton(FrameMov, "PONTO SPAWN 1")
+AddSpawnButton(FrameMov, "PONTO SPAWN 2")
+AddSpawnButton(FrameMov, "PONTO SPAWN 3")
+AddSpawnButton(FrameMov, "PONTO SPAWN 4")
+
+-- ADICIONA ESPAÇO EXTRA NO FINAL DA ROLAGEM (METADE DA TELA VAZIA)
+FrameMov.CanvasSize = UDim2.new(0, 0, 0, countMov + 140)
+
+-- [[ COMBATE ]]
+AddBtn(FrameCom, "MIRA PLAYER",
+    function(up) up(LockPlayerOn, MiraPlayerInclinada) end,
+    function(up) LockPlayerOn = not LockPlayerOn; CurrentTarget = nil; ultimaBuscaMira = 0; up(LockPlayerOn, MiraPlayerInclinada) end,
+    function(up) MiraPlayerInclinada = not MiraPlayerInclinada; up(LockPlayerOn, MiraPlayerInclinada) end)
+
+AddBtn(FrameCom, "MIRA NPC",
+    function(up) up(LockNpcOn, MiraNpcInclinada) end,
+    function(up) LockNpcOn = not LockNpcOn; CurrentTarget = nil; ultimaBuscaMira = 0; up(LockNpcOn, MiraNpcInclinada) end,
+    function(up) MiraNpcInclinada = not MiraNpcInclinada; up(LockNpcOn, MiraNpcInclinada) end)
+
+AddBtn(FrameCom, "ESP PLAYER", function(up) up(EspOn) end, function(up)
+    EspOn = not EspOn
+    up(EspOn)
+    if not EspOn then
+        for _, v in pairs(ScreenGui:GetChildren()) do
+            if v.Name == "ESP_CONTAINER" then v:Destroy() end
+        end
+    end
+end)
+
+local posYFuga = countCom
+countCom = countCom + 45
+
+local FugaRow = Instance.new("Frame", FrameCom)
+FugaRow.Size = UDim2.new(0.85, 0, 0, 32)
+FugaRow.Position = UDim2.new(0.075, 0, 0, posYFuga)
+FugaRow.BackgroundTransparency = 1
+FugaRow.BorderSizePixel = 0
+FugaRow.ZIndex = 2
+
+local FugaToggle, FugaLed = CriarSegmento(FugaRow, "FUGIR DO PERIGO", UDim2.new(0.7, -2, 1, 0), UDim2.new(0, 0, 0, 0))
+local FugaNivel, _, _, FugaNivelLabel = CriarSegmento(FugaRow, "[" .. NivelFuga .. "]", UDim2.new(0.3, -2, 1, 0), UDim2.new(0.7, 2, 0, 0), true)
+
+FugaToggle.MouseButton1Click:Connect(function()
+    FugirPerigoOn = not FugirPerigoOn
+    FugaLed.BackgroundColor3 = FugirPerigoOn and COR_ON or COR_OFF
+end)
+
+TapOuHold(FugaNivel, TEMPO_HOLD,
+    function()
+        NivelFuga = NivelFuga + 1
+        if NivelFuga > 15 then NivelFuga = 1 end
+        FugaNivelLabel.Text = "[" .. NivelFuga .. "]"
+    end,
+    function()
+        NivelFuga = 1
+        FugaNivelLabel.Text = "[" .. NivelFuga .. "]"
+    end)
+
+FrameCom.CanvasSize = UDim2.new(0, 0, 0, countCom + 140)
+
+-- [[ MONITOR DE DANO ]]
+local function EncontrarDestinoSeguro(hrp, distancia, alturaExtra)
+    local params = OverlapParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {lp.Character}
+    local base = hrp.Position
+    local primeiro = nil
+    for _ = 1, 8 do
+        local ang = math.rad(math.random(0, 360))
+        local pos = base + Vector3.new(math.cos(ang) * distancia, alturaExtra, math.sin(ang) * distancia)
+        primeiro = primeiro or pos
+        local livre = true
+        for _, p in ipairs(workspace:GetPartBoundsInRadius(pos, 3, params)) do
+            if p.CanCollide then livre = false; break end
+        end
+        if livre then return pos end
+    end
+    return primeiro
+end
+
+local function ConectarMonitorDano(char)
+    if _G.QuantumHealthConnection then _G.QuantumHealthConnection:Disconnect() end
+    local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
+    local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
+
+    if hum and hrp then
+        local ultimaVida = hum.Health
+        _G.QuantumHealthConnection = hum.HealthChanged:Connect(function(vidaAtual)
+            if FugirPerigoOn and vidaAtual < ultimaVida and vidaAtual > 0 then
+                hrp.Velocity = Vector3.new(0, 0, 0)
+                local distanciaFinal = 15 * NivelFuga
+                local destino = EncontrarDestinoSeguro(hrp, distanciaFinal, 5 + (NivelFuga * 1.5))
+                local cf = hrp.CFrame
+                hrp.CFrame = cf + (destino - cf.Position)
+            end
+            ultimaVida = vidaAtual
+        end)
+        Track(_G.QuantumHealthConnection)
+    end
+end
+
+if lp.Character then task.spawn(ConectarMonitorDano, lp.Character) end
+Track(lp.CharacterAdded:Connect(function(newChar)
+    CurrentTarget = nil
+    task.wait(0.5)
+    ConectarMonitorDano(newChar)
+end))
+
+-- [[ LOOP PRINCIPAL DE MOVIMENTO & COMBATE ]]
+local noclipParts, noclipT, noclipChar = {}, 0, nil
+
+Track(RunService.Stepped:Connect(function()
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not (hrp and hum) then return end
+    if hum.Health <= 0 then return end
+
+    if ModoCriativoOn then
+        local bv = hrp:FindFirstChild("QuantumFlyVelocity") or Instance.new("BodyVelocity", hrp)
+        bv.Name = "QuantumFlyVelocity"
+        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+
+        hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z)
+
+        local velVertical = 0
+        if SubindoPorBotao then velVertical = ForcaPulo
+        elseif DescendoPorBotao then velVertical = -ForcaPulo
+        else velVertical = 0 end
+
+        local move = hum.MoveDirection
+        local velHoriz = SpeedOn and (move * ForcaVel) or (move * (hum.WalkSpeed > 0 and hum.WalkSpeed or 16))
+        bv.Velocity = Vector3.new(velHoriz.X, velVertical, velHoriz.Z)
+    else
+        local bv = hrp:FindFirstChild("QuantumFlyVelocity")
+        if bv then bv:Destroy() end
+
+        if SpeedOn and hum.MoveDirection.Magnitude > 0 then
+            hrp.Velocity = Vector3.new(hum.MoveDirection.X * ForcaVel, hrp.Velocity.Y, hum.MoveDirection.Z * ForcaVel)
+        end
+
+        if JumpOn and (UserInputService:IsKeyDown(Enum.KeyCode.Space) or hum.Jump or SubindoPorBotao) then
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, ForcaPulo, hrp.Velocity.Z)
+        end
+    end
+
+    if NoClipOn then
+        if noclipChar ~= char or tick() - noclipT > 1 then
+            noclipParts = {}
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then table.insert(noclipParts, part) end
+            end
+            noclipT = tick(); noclipChar = char
+        end
+        for _, part in ipairs(noclipParts) do part.CanCollide = false end
+    end
+
+    if LockPlayerOn or LockNpcOn then
+        local alvoValido = false
+        if CurrentTarget and CurrentTarget:IsDescendantOf(workspace) then
+            local th = CurrentTarget.Parent and CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
+            alvoValido = th ~= nil and th.Health > 0
+        end
+
+        if not alvoValido then
+            CurrentTarget = nil
+            CurrentTargetTipo = nil
+            if tick() - ultimaBuscaMira >= 0.5 then
+                ultimaBuscaMira = tick()
+                local t, d, tipo = nil, math.huge, nil
+
+                if LockPlayerOn then
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        local pc = p.Character
+                        local phrp = pc and pc:FindFirstChild("HumanoidRootPart")
+                        local phum = pc and pc:FindFirstChildOfClass("Humanoid")
+                        if p ~= lp and phrp and phum and phum.Health > 0 then
+                            local dist = (hrp.Position - phrp.Position).Magnitude
+                            if dist < d then d = dist; t = phrp; tipo = "player" end
+                        end
+                    end
+                end
+
+                if LockNpcOn and not t then
+                    for _, v in ipairs(workspace:GetDescendants()) do
+                        if v:IsA("Humanoid") and v.Health > 0 then
+                            local m = v.Parent
+                            local r = m and m:FindFirstChild("HumanoidRootPart")
+                            if r and m ~= char and not Players:GetPlayerFromCharacter(m) then
+                                local dist = (hrp.Position - r.Position).Magnitude
+                                if dist < d then d = dist; t = r; tipo = "npc" end
+                            end
+                        end
+                    end
+                end
+                CurrentTarget = t
+                CurrentTargetTipo = tipo
+            end
+        end
+
+        if CurrentTarget then
+            local targetPos = CurrentTarget.Position
+            local lookAtTargetXZ = Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z)
+            if (lookAtTargetXZ - hrp.Position).Magnitude > 0.01 then
+                hrp.CFrame = CFrame.new(hrp.Position, lookAtTargetXZ)
+            end
+        end
+    else
+        CurrentTarget = nil
+        CurrentTargetTipo = nil
+    end
+end))
+
+RunService:BindToRenderStep("QuantumAimLock", Enum.RenderPriority.Camera.Value + 1, function()
+    local alvo = CurrentTarget
+    if not alvo or not alvo.Parent or not (LockPlayerOn or LockNpcOn) then return end
+
+    local cam = workspace.CurrentCamera
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not cam or not hrp then return end
+
+    local targetPos = alvo.Position
+    local alvoCam = targetPos
+    local inclinar = (CurrentTargetTipo == "player" and MiraPlayerInclinada) or (CurrentTargetTipo == "npc" and MiraNpcInclinada)
+    if inclinar then
+        local dist = (hrp.Position - targetPos).Magnitude
+        alvoCam = Vector3.new(targetPos.X, targetPos.Y - (dist * 0.10), targetPos.Z)
+    end
+
+    local camPos = cam.CFrame.Position
+    if (alvoCam - camPos).Magnitude > 0.01 then
+        cam.CFrame = CFrame.lookAt(camPos, alvoCam)
+    end
+end)
+
+-- [[ LOOP ESP ]]
+local espToken = {}
+_G.QuantumEspToken = espToken
+task.spawn(function()
+    while _G.QuantumEspToken == espToken and ScreenGui.Parent do
+        pcall(function()
+            local meuHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            if EspOn and meuHrp then
+                local c = ScreenGui:FindFirstChild("ESP_CONTAINER")
+                if not c then
+                    c = Instance.new("Folder")
+                    c.Name = "ESP_CONTAINER"
+                    c.Parent = ScreenGui
+                end
+
+                local vivos = {}
+                for _, p in ipairs(Players:GetPlayers()) do
+                    local ch = p.Character
+                    local th = ch and ch:FindFirstChild("HumanoidRootPart")
+                    local hm = ch and ch:FindFirstChildOfClass("Humanoid")
+                    if p ~= lp and th and hm and hm.Health > 0 then
+                        vivos[p.Name] = true
+                        local tag = c:FindFirstChild(p.Name)
+                        if not tag then
+                            tag = Instance.new("BillboardGui")
+                            tag.Name = p.Name
+                            tag.Parent = c
+                        end
+                        tag.Adornee = th; tag.Size = UDim2.new(0, 120, 0, 50); tag.AlwaysOnTop = true; tag.StudsOffset = Vector3.new(0, 3, 0)
+
+                        local l = tag:FindFirstChild("L")
+                        if not l then
+                            l = Instance.new("TextLabel")
+                            l.Name = "L"
+                            l.Parent = tag
+                        end
+                        l.Size = UDim2.new(1, 0, 1, 0); l.BackgroundTransparency = 1; l.TextColor3 = Color3.fromRGB(138, 43, 226); l.Font = Enum.Font.SourceSansBold; l.TextSize = 14
+                        l.Text = p.Name .. "\n[" .. math.floor((meuHrp.Position - th.Position).Magnitude) .. "m]"
+                    end
+                end
+
+                for _, t in ipairs(c:GetChildren()) do
+                    if not vivos[t.Name] then t:Destroy() end
+                end
+            end
+        end)
+        task.wait(0.5)
+    end
+end)
