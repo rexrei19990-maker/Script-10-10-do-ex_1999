@@ -530,6 +530,32 @@ local function AddBtn(parent, txt, setupCallback, clickCallback, holdCallback)
     return b
 end
 
+-- BOTÃO COM CAIXINHA [n] DO LADO (LED sempre verde; tocar na caixinha troca o nível)
+local function AddBtnComNivel(parent, txt, maxNivel, onToggle, onNivel)
+    local posY = (parent == FrameMov) and countMov or countCom
+    if parent == FrameMov then countMov = countMov + 45 else countCom = countCom + 45 end
+
+    local Row = Instance.new("Frame", parent)
+    Row.Size = UDim2.new(0.85, 0, 0, 32)
+    Row.Position = UDim2.new(0.075, 0, 0, posY)
+    Row.BackgroundTransparency = 1
+    Row.BorderSizePixel = 0
+    Row.ZIndex = 2
+
+    local b, led = CriarSegmento(Row, txt, UDim2.new(0.7, -2, 1, 0), UDim2.new(0, 0, 0, 0))
+    local bN, _, _, nLabel = CriarSegmento(Row, "[1]", UDim2.new(0.3, -2, 1, 0), UDim2.new(0.7, 2, 0, 0), true)
+
+    local function setLed(state) led.BackgroundColor3 = state and COR_ON or COR_OFF end
+    local nivel = 1
+    b.MouseButton1Click:Connect(function() onToggle(setLed) end)
+    bN.MouseButton1Click:Connect(function()
+        local novo = nivel % maxNivel + 1
+        if onNivel(novo) == false then return end
+        nivel = novo
+        nLabel.Text = "[" .. nivel .. "]"
+    end)
+end
+
 -- VARIÁVEIS
 local SpeedOn, JumpOn, ModoCriativoOn, BotoesVooOn, NoClipOn, EspOn, EliminarTudoOn, LockPlayerOn, LockNpcOn, FugirPerigoOn = false, false, false, false, false, false, false, false, false, false
 local MiraPlayerInclinada, MiraNpcInclinada = false, false
@@ -549,8 +575,6 @@ local NIVEL_CLASSE = {
     Decal = 3, ImageLabel = 3, ImageButton = 3, Sound = 3, Highlight = 3,
     Atmosphere = 3, Sky = 3, Clouds = 3, Shirt = 3, Pants = 3, ShirtGraphic = 3, CharacterMesh = 3,
 }
-local COR_NIVEL = {[2] = COR_INCLINADA, [3] = COR_VERMELHA}
-local function CorNivel() return COR_NIVEL[NivelElim] end
 
 local ElimOriginais = setmetatable({}, {__mode = "k"})
 local ElimRemovidos = {}
@@ -773,7 +797,7 @@ ManualTexto.Text = [[<font color="#00ff64"><b>O MAIS IMPORTANTE</b></font>
 
 <b>OTIMIZAÇÃO</b>
 Tocar: liga/desliga.
-Segurar: troca o nível (LED verde = 1, laranja = 2, vermelho = 3). Quanto maior o nível, mais leve fica o jogo e menos efeitos e imagens aparecem.
+Caixinha [n] do lado: troca o nível de 1 a 3. Quanto maior o nível, mais leve fica o jogo e menos efeitos e imagens aparecem.
 
 <b>PONTO SPAWN 1 a 4</b>
 1º toque: salva onde você está.
@@ -784,7 +808,7 @@ Caixinha [n]: velocidade do voo, de 1 a 10. Tocar aumenta, segurar volta pra 1.
 
 <b>MIRA PLAYER e MIRA NPC</b>
 Tocar: liga/desliga.
-Segurar: mira inclinada (LED laranja), mira um pouco mais baixo.
+Caixinha [n] do lado: [1] mira normal, [2] mira inclinada (um pouco mais baixo).
 
 <b>FUGIR DO PERIGO</b>
 Quando você toma dano, ele te joga pra longe. Caixinha [n] de 1 a 15: quanto maior, mais longe você vai. Segurar volta pra 1.
@@ -853,18 +877,16 @@ AddBtn(FrameMov, "MODO CRIATIVO", function(up) up(ModoCriativoOn) end, function(
 AddBtn(FrameMov, "BOTÕES DE VOO", function(up) up(BotoesVooOn) end, function(up) BotoesVooOn = not BotoesVooOn; up(BotoesVooOn); AtualizarVisibilidadeBotoesVoo() end)
 AddBtn(FrameMov, "ATRAVESSAR PAREDES", function(up) up(NoClipOn) end, function(up) NoClipOn = not NoClipOn; up(NoClipOn) end)
 
-AddBtn(FrameMov, "OTIMIZAÇÃO",
-    function(up) up(EliminarTudoOn, CorNivel()) end,
-    function(up)
+AddBtnComNivel(FrameMov, "OTIMIZAÇÃO", 3,
+    function(setLed)
         if not EliminarTudoOn and ElimOcupado then return end
         EliminarTudoOn = not EliminarTudoOn
-        up(EliminarTudoOn, CorNivel())
+        setLed(EliminarTudoOn)
         if EliminarTudoOn then EliminarTudoAgora() else RestaurarTudo(0) end
     end,
-    function(up)
-        if ElimOcupado then return end
-        MudarNivelElim(NivelElim % 3 + 1)
-        up(EliminarTudoOn, CorNivel())
+    function(n)
+        if ElimOcupado then return false end
+        MudarNivelElim(n)
     end)
 
 -- [[ FUNÇÃO DE PONTO DE SPAWN (COM VELOCIDADE ATUALIZADA EM TEMPO REAL) ]]
@@ -1029,15 +1051,13 @@ AddSpawnButton(FrameMov, "PONTO SPAWN 4")
 FrameMov.CanvasSize = UDim2.new(0, 0, 0, countMov + 140)
 
 -- [[ COMBATE ]]
-AddBtn(FrameCom, "MIRA PLAYER",
-    function(up) up(LockPlayerOn, MiraPlayerInclinada) end,
-    function(up) LockPlayerOn = not LockPlayerOn; CurrentTarget = nil; ultimaBuscaMira = 0; up(LockPlayerOn, MiraPlayerInclinada) end,
-    function(up) MiraPlayerInclinada = not MiraPlayerInclinada; up(LockPlayerOn, MiraPlayerInclinada) end)
+AddBtnComNivel(FrameCom, "MIRA PLAYER", 2,
+    function(setLed) LockPlayerOn = not LockPlayerOn; CurrentTarget = nil; ultimaBuscaMira = 0; setLed(LockPlayerOn) end,
+    function(n) MiraPlayerInclinada = (n == 2) end)
 
-AddBtn(FrameCom, "MIRA NPC",
-    function(up) up(LockNpcOn, MiraNpcInclinada) end,
-    function(up) LockNpcOn = not LockNpcOn; CurrentTarget = nil; ultimaBuscaMira = 0; up(LockNpcOn, MiraNpcInclinada) end,
-    function(up) MiraNpcInclinada = not MiraNpcInclinada; up(LockNpcOn, MiraNpcInclinada) end)
+AddBtnComNivel(FrameCom, "MIRA NPC", 2,
+    function(setLed) LockNpcOn = not LockNpcOn; CurrentTarget = nil; ultimaBuscaMira = 0; setLed(LockNpcOn) end,
+    function(n) MiraNpcInclinada = (n == 2) end)
 
 AddBtn(FrameCom, "ESP PLAYER", function(up) up(EspOn) end, function(up)
     EspOn = not EspOn
